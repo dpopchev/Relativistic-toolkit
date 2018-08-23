@@ -35,6 +35,10 @@ class toolkit:
         self.RicciT_co = None
         self.RicciS = None
         self.Einstein_co = None
+        self.u_co = None
+        self.u_contra = None
+        self.rho = None
+        self.p = None
 
         #~ the perturbed metric and ect goemtricals
         self.h_co = None
@@ -44,6 +48,10 @@ class toolkit:
         self.hRicciT_co = None
         self.hRicciS = None
         self.hEinstein_co = None
+        self.hU_co = None
+        self.hU_contra = None
+        self.hRho = None
+        self.hP = None
 
         #~ metric with small parameter to expand around and its geometricals
         self.eps_g_co = None
@@ -53,6 +61,10 @@ class toolkit:
         self.epsRicciT_co = None
         self.epsRicciS = None
         self.epsEinstein_co = None
+        self.epsU_co = None
+        self.epsU_contra = None
+        self.epsRho = None
+        self.epsP = None
 
         return
 
@@ -201,6 +213,83 @@ class toolkit:
         """
 
         return self.g_co, self.g_contra
+
+    def set_u_contra(self, u_contra):
+        """
+        set the components of the contravariant 4 velocicty U
+
+        it automaticly sets the covariant veloctiy
+
+        which may include functions of the coordinates
+
+        CURRENTLY NO INPUT CHECKING IS MADE !!!!
+
+        Parameters
+        ----------
+        u_contra : list
+            1d list which will be converter to rank 1 array
+
+        Returns
+        -------
+        """
+
+        #~ TODO input checks
+        #~ TODO include examples
+
+        self.u_contra = sp.Array(u_contra)
+
+        self.u_co = TC( TP(self.g_co, self.u_contra), (1,2))
+
+        return
+
+    def get_u(self):
+        """
+        return the 4 velocity as sympy arrays
+
+        Returns
+        -------
+        u_co : sp array of rank 1
+
+        u_contra : sp array of rank 1
+        """
+
+        #~ TODO finish docstring
+        #~ TODO include examples
+
+        return self.u_co, self.u_contra
+
+    def set_pressure(self, p):
+
+        #~ TODO NO DOCSTRING
+
+        self.p = p
+
+        return
+
+    def get_pressure(self):
+
+        return self.p
+
+    def set_density(self, rho):
+
+        #~ TODO NO DOCSTRING
+
+        self.rho = rho
+
+        return
+
+    def get_density(self):
+
+        return self.rho
+
+    @staticmethod
+    def _get_tensor_perfect_fluid_co(rho, p, u_co, g_co):
+
+        #~ TODO NO DOCSTRING
+
+        return sp.simplify(
+            (rho + p)*TP(u_co, u_co) + p*g_co
+        )
 
     @staticmethod
     def _comp_Christoffel_1st(coords, g, co):
