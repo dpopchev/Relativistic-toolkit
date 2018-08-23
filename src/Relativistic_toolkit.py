@@ -30,6 +30,7 @@ class toolkit:
         #~ the metric and etc geometricals
         self.g_co = None
         self.g_contra = None
+        self.Christoffel_1st = None
         self.Christoffel_2nd = None
         self.RiemanT = None
         self.RicciT_co = None
@@ -39,6 +40,8 @@ class toolkit:
         self.u_contra = None
         self.rho = None
         self.p = None
+        self.varphi = None
+        self.V = None
 
         #~ the perturbed metric and ect goemtricals
         self.h_co = None
@@ -52,6 +55,8 @@ class toolkit:
         self.hU_contra = None
         self.hRho = None
         self.hP = None
+        self.hVarphi = None
+        self.hV = None
 
         #~ metric with small parameter to expand around and its geometricals
         self.eps_g_co = None
@@ -65,6 +70,8 @@ class toolkit:
         self.epsU_contra = None
         self.epsRho = None
         self.epsP = None
+        self.epsVarphi = None
+        self.epsV = None
 
         return
 
@@ -155,6 +162,28 @@ class toolkit:
             )
             display(g_contracted)
             return
+
+        logging.info("Will compute the Christoffel, Riman, Ricci...")
+
+        self.Christoffel_2nd = self._get_Christoffel_2nd(
+            self.coords, self.g_co, self.g_contra
+        )
+
+        self.RiemanT = self._get_Rieman_tensor(
+            self.coords, self.g_co, self.g_contra, self.Christoffel_2nd
+        )
+
+        self.RicciT_co = self._get_Ricci_tensor_co(
+            self.coords, self.g_co, self.g_contra, self.RiemanT
+        )
+
+        self.RicciS = self._get_Ricci_scalar(
+            self.coords, self.g_co, self.g_contra, self.RicciT_co
+        )
+
+        self.Einstein_co = self._get_Einstein_tensor_co(
+            self.coords, self.g_co, self.g_contra, self.RicciT_co, self.RicciS
+        )
 
         return
 
@@ -281,6 +310,106 @@ class toolkit:
     def get_density(self):
 
         return self.rho
+
+    def set_scalarField(self, varphi, V):
+        """
+        give functions for the scalar field
+
+        Parameters
+        ----------
+        varphi : sympy function
+
+        V : sympy function
+        """
+
+        #~ TODO finish the docstring
+
+        self.varphi = varphi
+        self.V = V
+
+        return
+
+    def get_scalarField(self):
+
+        #~ TODO NO DOCSTRING
+
+        return self.varphi, self.V
+
+    def get_div_tensor_energy_momentum(self):
+
+        #~ TODO docstring
+        #~ TODO input check
+
+        T_fluid_co = self._get_tensor_perfect_fluid_co(
+            self.rho, self.p, self.u_co, self.g_co
+        )
+
+        T_scalarField_co = self._get_tensor_scalarField_co(
+            self.varphi, self.V, self.g_co, self.g_contra, self.coords
+        )
+
+        T_co = T_fluid_co + T_scalarField_co
+        T_co = TC( TP(self.g_contra, T_co), (1,3) )
+
+        nabla_T = self._nabla_T_1co_1contra(
+            T_co, self.Christoffel_2nd, self.coords
+        )
+
+        return sp.simplify(TC(nabla_T, (0,2)))
+
+    def get_u_div_tensor_energy_momentum(self):
+
+        #~ TODO docstring
+        #~ TODO input check
+
+        div_T = self.get_div_tensor_energy_momentum()
+
+        print("\n Terms of div(T) parallel to u \n")
+
+        u_par_div_T = TP(self.u_contra, div_T)
+
+        for _ in sp.expand( TC(u_par_div_T, (0,1) ) ).args:
+            display(_)
+
+        print("\n Terms of div(T) perpendicular to u \n")
+
+        kronecker = sp.Array(sp.eye(4))
+
+        u_perp_div_T_term_1 = TC( TP(kronecker, div_T), (0,2) )
+
+        u_perp_div_T_term_2 = TC( TP(self.u_co, self.u_contra, div_T), (1,2))
+
+        u_perp_div_T = sp.simplify(u_perp_div_T_term_1 + u_perp_div_T_term_2 )
+
+        for i, v in enumerate(u_perp_div_T):
+            display(self.coords[i], v)
+
+        return u_par_div_T, u_perp_div_T
+
+    @staticmethod
+    def _get_tensor_scalarField_co(varphi, V, g_co, g_contra, coords):
+
+        #~ TODO NO DOCSTRING
+
+        term1 = 2*TP(
+            toolkit._nabla_scalar(varphi, coords),
+            toolkit._nabla_scalar(varphi, coords)
+        )
+
+        term2 = TP(
+            g_contra,
+            toolkit._nabla_scalar(varphi, coords),
+            toolkit._nabla_scalar(varphi, coords)
+        )
+        term2 = TC( term2, (0,2) )
+        term2 = TC( term2, (0,1) )
+        term2 *= g_co
+
+        term3 = 2*V*g_co
+
+        return sp.simplify(
+            term1 - term2 - term3
+        )
 
     @staticmethod
     def _get_tensor_perfect_fluid_co(rho, p, u_co, g_co):
@@ -437,7 +566,7 @@ class toolkit:
         return Christoffel_1st
 
     @staticmethod
-    def _get_Christoffel_2nd(coords, g_co, g_contra):
+    def _get_Christoffel_2nd(coords, g_co, g_contra, Christoffel_1st = None):
         """
         returns Christoffel symbol of 2nd kind by contracting with g_contra
         the firstly computed Christoffel symbol of 1st kind using g_co
@@ -496,14 +625,16 @@ class toolkit:
 
         #~ TODO input checks
 
-        Christoffel_1st = toolkit._get_Christoffel_1st(coords, g_co)
+        if not Christoffel_1st:
+
+            Christoffel_1st = toolkit._get_Christoffel_1st(coords, g_co)
 
         Christoffel_2nd = TC( TP(g_contra, Christoffel_1st), (1,2) )
 
         return sp.simplify(Christoffel_2nd)
 
     @staticmethod
-    def _get_Rieman_tensor(coords, g_co, g_contra):
+    def _get_Rieman_tensor(coords, g_co, g_contra, Christoffel_2nd = None):
         """
         return Rieman tensor for provided coordinates, covariant and
         contravariant metrices
@@ -569,7 +700,8 @@ class toolkit:
 
         #~ TODO input checks
 
-        Christoffel_2nd = toolkit._get_Christoffel_2nd(coords, g_co, g_contra)
+        if not Christoffel_2nd:
+            Christoffel_2nd = toolkit._get_Christoffel_2nd(coords, g_co, g_contra)
 
         Christoffel_2nd_deriv = sp.derive_by_array(Christoffel_2nd, coords)
 
@@ -603,7 +735,7 @@ class toolkit:
         return sp.simplify(RiemanT)
 
     @staticmethod
-    def _get_Ricci_tensor_co(coords, g_co, g_contra):
+    def _get_Ricci_tensor_co(coords, g_co, g_contra, RiemanT = None):
         """
         return full covariant Ricci tensor for provided coordinates, covariant
         and contravariant metrices
@@ -668,15 +800,15 @@ class toolkit:
         """
 
         #~ TODO input checks
-
-        RiemanT = toolkit._get_Rieman_tensor(coords, g_co, g_contra)
+        if not RiemanT:
+            RiemanT = toolkit._get_Rieman_tensor(coords, g_co, g_contra)
 
         RicciT = TC( RiemanT, (0,2) )
 
         return sp.simplify(RicciT)
 
     @staticmethod
-    def _get_Ricci_scalar(coords, g_co, g_contra):
+    def _get_Ricci_scalar(coords, g_co, g_contra, RicciT_co = None):
         """
         return Ricci scalar for provided coordinates, covariant
         and contravariant metrices
@@ -729,10 +861,10 @@ class toolkit:
         """
 
         #~ TODO input checks
+        if not RicciT_co:
+            RicciT_co = toolkit._get_Ricci_tensor_co(coords, g_co, g_contra)
 
-        RicciT = toolkit._get_Ricci_tensor_co(coords, g_co, g_contra)
-
-        RicciS = TP( g_contra, RicciT )
+        RicciS = TP( g_contra, RicciT_co )
 
         RicciS = TC( RicciS, (0,2) )
         RicciS = TC( RicciS, (0,1) )
@@ -740,7 +872,8 @@ class toolkit:
         return sp.simplify(RicciS)
 
     @staticmethod
-    def _get_Einstein_tensor_co(coords, g_co, g_contra):
+    def _get_Einstein_tensor_co(
+        coords, g_co, g_contra, RicciT = None, RicciS = None):
         """
         return full covariant Einstein tensor for provided coordinates,
         covariant and contravariant metrices
@@ -804,8 +937,11 @@ class toolkit:
 
         #~ TODO input checks
 
-        RicciT = toolkit._get_Ricci_tensor_co(coords, g_co, g_contra)
-        RicciS = toolkit._get_Ricci_scalar(coords, g_co, g_contra)
+        if not RicciT:
+            RicciT = toolkit._get_Ricci_tensor_co(coords, g_co, g_contra)
+
+        if not RicciS:
+            RicciS = toolkit._get_Ricci_scalar(coords, g_co, g_contra)
 
         EinsteinT = RicciT - (1/2)*RicciS*g_co
 
