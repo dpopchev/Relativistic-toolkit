@@ -386,6 +386,128 @@ class toolkit:
 
         return u_par_div_T, u_perp_div_T
 
+    def get_STT_field_eq(self):
+
+        #~ TODO NO DOCSTRING
+
+        T_fluid_co = 8*sp.pi*self._get_tensor_perfect_fluid_co(
+            self.rho, self.p, self.u_co, self.g_co
+        )
+
+        T_scalarField_co = self._get_tensor_scalarField_co(
+            self.varphi, self.V, self.g_co, self.g_contra, self.coords
+        )
+
+        T_energy_momentum = T_fluid_co + T_scalarField_co
+
+        if self.Einstein_co:
+            G_co = self.Einstein_co
+        else:
+            G_co = self._get_Einstein_tensor_co(
+                self.coords, self.g_co, self.g_contra, self.RicciT, self.RicciS
+            )
+
+        scalarField_lhs = self._get_lhs_scalarField(
+            self.g_co, self.g_contra, self.varphi, self.V,
+            self._get_tensor_perfect_fluid_co(
+                self.rho, self.p, self.u_co,
+                self.g_co
+            ),
+            self.Christoffel_2nd,
+            self.coords
+        )
+
+        scalarField_rhs = self._get_rhs_scalarField(
+            self.g_co, self.g_contra, self.varphi, self.V,
+            self._get_tensor_perfect_fluid_co(
+                self.rho, self.p, self.u_co,
+                self.g_co
+            ),
+            self.Christoffel_2nd,
+            self.coords
+        )
+
+        print("\n LHS of Geometrical part (Einstein tenosor) \n")
+
+        for i_comb in itools.product(
+            [_ for _ in range(len(self.coords))], repeat=2
+        ):
+            if G_co[i_comb[0], i_comb[1]]:
+                print("\n Einstein tensor non zero combination \n")
+
+                display(self.coords[i_comb[0]], self.coords[i_comb[1]])
+
+                print("\n term by term \n")
+
+                for _ in sp.expand(G_co[i_comb[0], i_comb[1]]).args:
+                    display(_)
+
+                print("\n searching next non zero Einstein tensor... ")
+
+        print("\n RHS of Geometrical part (Tensor energy momentum) \n")
+        for i_comb in itools.product(
+            [_ for _ in range(len(self.coords))], repeat=2
+        ):
+            if T_energy_momentum[i_comb[0], i_comb[1]]:
+                print("\n Tensor energy momentum non zero combination \n")
+
+                display(self.coords[i_comb[0]], self.coords[i_comb[1]])
+
+                print("\n term by term \n")
+
+                for _ in sp.expand(T_energy_momentum[i_comb[0], i_comb[1]]).args:
+                    display(_)
+
+                print("\n searching next non zero energy momentum combination \n")
+
+        print("\n LHS Scalar field \n")
+        for _ in sp.expand(scalarField_lhs).args:
+            display(_)
+
+        print("\n RHS Scalar field \n")
+        for _ in sp.expand(scalarField_rhs).args:
+            display(_)
+
+        return G_co, \
+        T_energy_momentum, \
+        scalarField_lhs, scalarField_rhs
+
+    @staticmethod
+    def _get_rhs_scalarField(g_co, g_contra, varphi, V, T_co, Chris_2, coords):
+
+        #~ TODO DOCSTRING
+
+        var_tmp = sp.Function("\\varphi")(coords[1])
+
+        a = sp.Function("a")(varphi)
+
+        T_trace = TC( TP(g_contra, T_co), (0,2) )
+
+        T_trace = TC( T_trace, (0,1) )
+
+        rhs = -4*sp.pi*a*T_trace + sp.diff( V, var_tmp )
+
+        return sp.simplify(rhs)
+
+    @staticmethod
+    def _get_lhs_scalarField( g_co, g_contra, varphi, V, T_co, Chris_2, coords ):
+
+        #~ TODO DOCSTRING
+
+        lhs = TP(
+            g_contra,
+            toolkit._nabla_T_1co(
+                toolkit._nabla_scalar(varphi, coords),
+                Chris_2,
+                coords
+            )
+        )
+
+        lhs = TC( lhs, (1,3) )
+        lhs = TC( lhs, (0,1) )
+
+        return sp.simplify(lhs)
+
     @staticmethod
     def _get_tensor_scalarField_co(varphi, V, g_co, g_contra, coords):
 
@@ -1304,3 +1426,43 @@ if __name__ == "__main__":
             "RT": toolkit(),
         }
     )
+
+
+    #~ imp.reload(RTm);
+    #~ RT = RTm.toolkit();
+
+    #~ t, r, thetha, phi = sp.symbols("t,r,\\theta, \phi");
+
+    #~ coords = [t,r,thetha, phi]
+
+    #~ RT.set_coordinates(coords)
+
+    #~ Phi = sp.Function("\Phi")(r)
+
+    #~ Lambda = sp.Function("\Lambda")(r)
+
+    #~ g_co = [
+        #~ [ -sp.exp(2*Phi), 0, 0, 0 ],
+        #~ [ 0, sp.exp(2*Lambda), 0, 0 ],
+        #~ [ 0, 0, r**2, 0 ],
+        #~ [ 0, 0, 0, (r*sp.sin(theta))**2 ]
+    #~ ];
+
+    #~ RT.set_metric(g_co);
+    #~ g_co, g_contra = RT.get_metric();
+
+    #~ rho = sp.Function("\\rho")(r)
+    #~ RT.set_density(rho)
+
+    #~ p = sp.Function("p")(r)
+    #~ RT.set_pressure(p)
+
+    #~ varphi = sp.Function("\\varphi")(r)
+    #~ V = sp.Function("V")(varphi)
+    #~ RT.set_scalarField(varphi, V)
+
+    #~ RT.set_u_contra([sp.exp(-Phi), 0, 0, 0]);
+    #~ u_co, u_contra = RT.get_u();
+
+    #~ RT.get_u_div_tensor_energy_momentum()
+    #~ RT.get_STT_field_eq();
