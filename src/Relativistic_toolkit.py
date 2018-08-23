@@ -784,6 +784,42 @@ class toolkit:
 
         return sp.simplify( res )
 
+    @staticmethod
+    def _nabla_T_1co( T, Chris_2, coords ):
+        """
+        return the covariant derivative of tensor of rank 1 and type (0,1)
+
+        Parameters
+        ----------
+        T : sympy array of rank 1
+
+        Chris_2 : sympy array of rank 3
+            Christoffel symbol of 2nd kind wrt to coords of interenst,
+
+        coords : list
+            sympy symbols coordinates in list
+
+        Returns
+        -------
+            : sympy array of rank 2
+        """
+
+        #~ TODO include examples
+
+        T_deriv = sp.derive_by_array(T, coords)
+        Chris_T_co_1 = TC( TP(Chris_2, T), (0,3) )
+
+        res = sp.Array([
+            [
+                T_deriv[nabla_i, co_1]
+                - Chris_T_contra_1[ nabla_i, co_1 ]
+
+                for co_1 in range(len(coords))
+            ] for nabla_i in range(len(coords))
+        ] )
+
+        return sp.simplify( res )
+
 
 if __name__ == "__main__":
 
