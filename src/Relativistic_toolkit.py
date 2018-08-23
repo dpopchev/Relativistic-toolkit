@@ -919,7 +919,7 @@ class toolkit:
     @staticmethod
     def _nabla_T_2co( T, Chris_2, coords ):
         """
-        return the covariant derivative of tensor of rank 1 and type (1,1),
+        return the covariant derivative of tensor of rank 1 and type (0,2),
         where first index is covariant, second is contravariant
 
         T_{ab}
@@ -959,6 +959,54 @@ class toolkit:
 
                     for co_2 in range(len(coords))
                 ] for co_1 in range(len(coords))
+            ] for nabla_i in range(len(coords))
+        ] )
+
+        return sp.simplify( res )
+
+    @staticmethod
+    def _nabla_T_2contra( T, Chris_2, coords ):
+        """
+        return the covariant derivative of tensor of rank 1 and type (2,0),
+        where first index is covariant, second is contravariant
+
+        T^{ab}
+
+        INDEX PLACEMENT IS FIXED, for other arrengment see other _nabla funcs
+
+        Parameters
+        ----------
+        T : sympy array of rank 2 of type T^{ab}
+
+        Chris_2 : sympy array of rank 3
+            Christoffel symbol of 2nd kind wrt to coords of interenst,
+
+        coords : list
+            sympy symbols coordinates in list
+
+        Returns
+        -------
+            : sympy array of rank 2
+        """
+
+        #~ TODO include examples
+
+        T_deriv = sp.derive_by_array(T, coords)
+
+        Chris_T_contra_1 = TC( TP(Chris_2, T), (2,3) )
+        Chris_T_contra_2 = TC( TP(Chris_2, T), (2,4))
+
+        res = sp.Array( [
+            [
+                [
+                    T_deriv[nabla_i, contra_1, contra_2]
+
+                    + Chris_T_contra_1[contra_1, nabla_i, contra_2 ]
+
+                    - Chris_T_contra_2[contra_2, nabla_i, contra_1 ]
+
+                    for contra_2 in range(len(coords))
+                ] for contra_1 in range(len(coords))
             ] for nabla_i in range(len(coords))
         ] )
 
