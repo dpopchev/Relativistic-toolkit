@@ -771,11 +771,13 @@ class toolkit:
         #~ TODO include examples
 
         T_deriv = sp.derive_by_array(T, coords)
+
         Chris_T_contra_1 = TC( TP(Chris_2, T), (2,3) )
 
         res = sp.Array([
             [
                 T_deriv[nabla_i, contra_1]
+
                 + Chris_T_contra_1[ contra_1, nabla_i ]
 
                 for contra_1 in range(len(coords))
@@ -807,12 +809,14 @@ class toolkit:
         #~ TODO include examples
 
         T_deriv = sp.derive_by_array(T, coords)
+
         Chris_T_co_1 = TC( TP(Chris_2, T), (0,3) )
 
-        res = sp.Array([
+        res = sp.Array( [
             [
                 T_deriv[nabla_i, co_1]
-                - Chris_T_contra_1[ nabla_i, co_1 ]
+
+                - Chris_T_co_1[ nabla_i, co_1 ]
 
                 for co_1 in range(len(coords))
             ] for nabla_i in range(len(coords))
@@ -1003,7 +1007,7 @@ class toolkit:
 
                     + Chris_T_contra_1[contra_1, nabla_i, contra_2 ]
 
-                    - Chris_T_contra_2[contra_2, nabla_i, contra_1 ]
+                    + Chris_T_contra_2[contra_2, nabla_i, contra_1 ]
 
                     for contra_2 in range(len(coords))
                 ] for contra_1 in range(len(coords))
@@ -1065,7 +1069,6 @@ class toolkit:
         ] )
 
         return sp.simplify( res )
-
 
 if __name__ == "__main__":
 
