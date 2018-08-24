@@ -251,6 +251,43 @@ class toolkit:
 
         return self.epsEinsteinT_co
 
+    def set_epsScalarField(self, epsVarphi, epsV):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        self.epsVarphi = epsVarphi
+        self.epsV = 0
+
+        return
+
+    def get_epsScalarField(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.epsVarphi, self.epsV
+
+    def get_epsScalarField_field_eq(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        scalarField_lhs = self._get_lhs_scalarField(
+            self.epsG_co, self.epsG_contra, self.epsVarphi,
+            self.epsChristoffel_2nd,
+            self.coords
+        )
+
+        scalarField_lhs = sp.series(
+            scalarField_lhs,
+            x = self.eps,
+            x0 = 0,
+            n = 2
+        ).removeO()
+
+        return sp.simplify(scalarField_lhs)
+
 #################################################################################
 #~ PERTURBED GEOMETRICAL FIELD EQUATIONS
 #################################################################################
@@ -474,8 +511,8 @@ class toolkit:
 
         hScalarField_lhs = self._get_hLHS_scalarField(
             self.g_co, self.g_contra, self.h_co, self.h_contra,
-            self.varphi, self.V, self.hVarphi, self.hV, T_fluid_co,
-            self.Christoffel_2nd, self.coords
+            self.varphi, self.hVarphi,
+            self.Christoffel_2nd, self.coords, self.hChristoffel_2nd
         )
 
         hScalarField_rhs = self._get_hRHS_scalarField(
@@ -671,8 +708,8 @@ class toolkit:
     @staticmethod
     def _get_hLHS_scalarField(
         g_co, g_contra, h_co, h_contra,
-        varphi, V, hVarphi, hV, T_co,
-        Chris_2, coords
+        varphi, hVarphi,
+        Chris_2, coords, hChris_2
     ):
 
         #~ TODO inpucht checks
@@ -702,7 +739,19 @@ class toolkit:
         lhs_2 = TC( lhs_2, (0,2) )
         lhs_2 = TC( lhs_2, (0,1) )
 
-        return sp.simplify(lhs_1 + lhs_2)
+        lhs_3 = TP(
+            hChris_2,
+            toolkit._nabla_scalar(varphi, coords)
+        )
+
+        lhs_3 = TC( lhs_3, (0,3) )
+
+        lhs_3 = TP( g_contra, lhs_3 )
+        lhs_3 = TC( lhs_3, (0,2) )
+        lhs_3 = TC( lhs_3, (0,1))
+
+
+        return sp.simplify(lhs_1 + lhs_2 - lhs_3)
 
     @staticmethod
     def _get_hRHS_scalarField(
@@ -1054,10 +1103,6 @@ class toolkit:
 
         scalarField_lhs = self._get_lhs_scalarField(
             self.g_co, self.g_contra, self.varphi, self.V,
-            self._get_tensor_perfect_fluid_co(
-                self.rho, self.p, self.u_co,
-                self.g_co
-            ),
             self.Christoffel_2nd,
             self.coords
         )
@@ -1132,7 +1177,7 @@ class toolkit:
 #################################################################################
 
     @staticmethod
-    def _get_lhs_scalarField( g_co, g_contra, varphi, V, T_co, Chris_2, coords ):
+    def _get_lhs_scalarField( g_co, g_contra, varphi, Chris_2, coords ):
 
         #~ TODO DOCSTRING
 
@@ -2231,3 +2276,86 @@ if __name__ == "__main__":
 
     #~ display(G_co[0,0] + eps*hG_co[0,0]);
     #~ display(epsG_co[0,0]);
+
+    #~ imp.reload(RTm);
+
+    #~ RT = RTm.toolkit();
+
+    #~ t, r, thetha, phi = sp.symbols("t,r,\\theta, \phi");
+
+    #~ coords = [t,r,thetha, phi]
+
+    #~ RT.set_coordinates(coords)
+
+    #~ Phi = sp.Function("\Phi")(r)
+
+    #~ Lambda = sp.Function("\Lambda")(r)
+
+    #~ g_co = [
+            #~ [ -sp.exp(2*Phi), 0, 0, 0 ],
+            #~ [ 0, sp.exp(2*Lambda), 0, 0 ],
+            #~ [ 0, 0, r**2, 0 ],
+            #~ [ 0, 0, 0, (r*sp.sin(theta))**2 ]
+    #~ ];
+
+    #~ RT.set_metric(g_co);
+    #~ g_co, g_contra = RT.get_metric();
+
+    #~ G_co = RT.get_Einstein_tensor_co();
+
+    #~ rho = sp.Function("\\rho")(r)
+    #~ RT.set_density(rho)
+
+    #~ p = sp.Function("p")(rho)
+    #~ RT.set_pressure(p)
+
+    #~ varphi = sp.Function("\\varphi")(r)
+    #~ V = sp.Function("V")(varphi)
+    #~ RT.set_scalarField(varphi, V)
+
+    #~ RT.set_u_contra([sp.exp(-Phi), 0, 0, 0]);
+    #~ u_co, u_contra = RT.get_u();
+
+    #~ delta_Phi = sp.Function("\delta\Phi")(r,t)
+    #~ delta_Lambda = sp.Function("\delta\Lambda")(r,t)
+
+    #~ h_co = [
+        #~ [ -2*sp.exp(2*Phi)*delta_Phi, 0, 0, 0 ],
+        #~ [ 0, 2*sp.exp(2*Lambda)*delta_Lambda, 0, 0 ],
+        #~ [ 0, 0, 0, 0 ],
+        #~ [ 0, 0, 0, 0 ]
+    #~ ]
+
+    #~ RT.set_hmetric(h_co)
+    #~ h_co, h_contra = RT.get_hmetric()
+
+    #~ xi = sp.Function("\\xi")(r,t)
+    #~ xi_contra = sp.Array([ 0, xi, 0, 0 ])
+    #~ RT.set_hU_contra(xi_contra)
+    #~ hU_co, hU_contra = RT.get_hU()
+
+    #~ delta_rho = sp.Function("\delta\\rho")(r)
+    #~ RT.set_hDensity(delta_rho)
+
+    #~ delta_p = sp.Function("\delta p")(delta_rho)
+    #~ RT.set_hPressure(delta_p)
+
+    #~ delta_varphi = sp.Function("\delta\\varphi")(r,t)
+    #~ delta_V = sp.Function("\delta V")(varphi)
+    #~ RT.set_hScalarField(delta_varphi, delta_V)
+
+    #~ lhs, rhs = RT.get_hScalarField_field_eq()
+
+    #~ eps = sp.symbols("\\varepsilon")
+    #~ epsG_co = [
+        #~ [ -sp.exp(2*( Phi + eps*delta_Phi)), 0, 0, 0 ],
+        #~ [ 0, sp.exp(2*(Lambda + eps*delta_Lambda)), 0, 0 ],
+        #~ [ 0, 0, r**2, 0 ],
+        #~ [ 0, 0, 0, (r*sp.sin(theta))**2 ]
+    #~ ]
+    #~ RT.set_epsGmetric(eps, epsG_co);
+    #~ epsG_co, epsG_contra = RT.get_epsGmetric();
+
+    #~ epsVarphi = sp.Function("\delta\\varphi")(r,t)
+    #~ RT.set_epsScalarField(varphi + eps*epsVarphi, 0)
+    #~ lhs_scalar = RT.get_epsScalarField_field_eq()
