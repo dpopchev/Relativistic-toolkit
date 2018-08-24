@@ -289,7 +289,7 @@ class toolkit:
             self.RicciT_co, self.hRicciT_co
         )
 
-        self.hEinsteinT_co = self._get_hinstein_tensor_co(
+        self.hEinsteinT_co = self._get_hEinstein_tensor_co(
             self.hRicciT_co, self.h_co, self.RicciS, self.g_co, self.hRicciS
         )
 
@@ -336,6 +336,155 @@ class toolkit:
         #~ TODO docstring
 
         return self.hEinsteinT_co
+
+    def set_hU_contra(self, xi_contra):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        self.hU_contra = TP(
+            self.u_contra,
+            self._nabla_T_1contra(xi_contra, self.Christoffel_2nd, self.coords)
+        )
+
+        self.hU_contra = TC(self.hU_contra, (0,1))
+
+        self.hU_co = (-1)*TP(
+            self.u_co,
+            self._nabla_T_1contra(xi_contra, self.Christoffel_2nd, self.coords)
+        )
+
+        self.hU_co = TC(self.hU_co, (0,2))
+
+        return
+
+    def get_hU(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hU_co, self.hU_contra
+
+    def set_hPressure(self, hP):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        self.hP = hP
+
+        return
+
+    def get_hPressure(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hP
+
+    def set_hDensity(self, hRho):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        self.hRho = hRho
+
+        return
+
+    def get_hDensity(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hRho
+
+    def set_hScalarField(self, hVarphi, hV):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        self.hVarphi = hVarphi
+        self.hV = hV
+
+        return
+
+    def get_hScalarField(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hVarphi, self.hV
+
+    def get_hDiv_tensor_energy_momentum(self):
+
+        #~ TODO docstring
+        #~ TODO input check
+
+        hT_fluid_co = self._get_hTensor_perfect_fluid_co(
+            self.rho, self.hRho,
+            self.p, self.hP,
+            self.u_co, self.hU_co,
+            self.g_co, self.h_co,
+            self.coords
+        )
+
+        hT_scalarField_co = self._get_hTensor_scalarField_co(
+            self.varphi, self.hVarphi,
+            self.V, self.hV,
+            self.g_contra, self.h_contra,
+            self.g_co, self.h_co,
+            self.coords
+        )
+
+        hT_co = hT_fluid_co + hT_scalarField_co
+
+        T_fluid_co = self._get_tensor_perfect_fluid_co(
+            self.rho, self.p, self.u_co, self.g_co
+        )
+
+        T_scalarField_co = self._get_tensor_scalarField_co(
+            self.varphi, self.V, self.g_co, self.g_contra, self.coords
+        )
+
+        T_co = T_fluid_co + T_scalarField_co
+
+        hT = (
+            TC( TP( self.g_contra, hT_co ), (1,3) )
+            + TC( TP( self.h_contra, T_co ), (1,3) )
+        )
+
+        nabla_hT = self._nabla_T_1co_1contra(
+            hT, self.Christoffel_2nd, self.coords
+        )
+
+        return sp.simplify( TC( nabla_hT, (0,2) ))
+
+    def get_hScalarField_field_eq(self):
+
+        hT_fluid_co = self._get_hTensor_perfect_fluid_co(
+            self.rho, self.hRho,
+            self.p, self.hP,
+            self.u_co, self.hU_co,
+            self.g_co, self.h_co,
+            self.coords
+        )
+
+        T_fluid_co = self._get_tensor_perfect_fluid_co(
+            self.rho, self.p, self.u_co, self.g_co
+        )
+
+        hScalarField_lhs = self._get_hLHS_scalarField(
+            self.g_co, self.g_contra, self.h_co, self.h_contra,
+            self.varphi, self.V, self.hVarphi, self.hV, T_fluid_co,
+            self.Christoffel_2nd, self.coords
+        )
+
+        hScalarField_rhs = self._get_hRHS_scalarField(
+            self.g_co, self.g_contra, self.h_co, self.h_contra,
+            self.varphi, self.V, self.hVarphi, self.hV, T_fluid_co, hT_fluid_co,
+            self.Christoffel_2nd, self.coords
+        )
+
+        return hScalarField_lhs, hScalarField_rhs
 
     @staticmethod
     def _get_hChristoffel_2nd(coords, g_co, g_contra, h_co, Chris_2):
@@ -410,7 +559,7 @@ class toolkit:
         return sp.simplify(term1 + term2)
 
     @staticmethod
-    def _get_hinstein_tensor_co( hRicciT_co, h_co, RicciS, g_co, hRicciS ):
+    def _get_hEinstein_tensor_co( hRicciT_co, h_co, RicciS, g_co, hRicciS ):
 
         #~ TODO inpucht checks
         #~ TODO docstring
@@ -423,6 +572,172 @@ class toolkit:
 
         return sp.simplify(term1 + term2 + term3)
 
+#################################################################################
+#~ TENSOR ENERGY AND MOMENTUM PERTURBED
+#################################################################################
+#~ private methods to compute
+#~      tensor for perfect fluid and tensor of scalar field
+#~      PERTURBED
+#################################################################################
+
+    @staticmethod
+    def _get_hTensor_perfect_fluid_co(
+        rho, hRho,
+        p, hP,
+        u_co, hU_co,
+        g_co, h_co,
+        coords
+    ):
+
+        term1 = (hP + hRho)*TP(u_co, u_co)
+
+        tmp = TP( u_co, hU_co )
+
+        term2 = sp.Array( [
+            [
+                tmp[co_1, co_2] + tmp[co_2, co_1]
+
+                for co_2 in range(len(coords))
+            ] for co_1 in range(len(coords))
+        ] )
+
+        term2 *= (rho + p)
+
+        term3 = p*h_co + g_co*hP
+
+        return sp.simplify(term1 + term2 + term3)
+
+    @staticmethod
+    def _get_hTensor_scalarField_co(
+        varphi, hVarphi,
+        V, hV,
+        g_contra, h_contra,
+        g_co, h_co,
+        coords
+    ):
+
+        tmp_varphi_varphi = TP(
+            toolkit._nabla_scalar(varphi, coords),
+            toolkit._nabla_scalar(varphi, coords)
+        )
+
+        tmp_hVarphi_varphi = TP(
+            toolkit._nabla_scalar(hVarphi, coords),
+            toolkit._nabla_scalar(varphi, coords)
+        )
+
+        term1 = sp.Array( [
+            [
+                tmp_hVarphi_varphi[co_1, co_2] + tmp_hVarphi_varphi[co_2, co_1]
+
+                for co_2 in range(len(coords))
+            ] for co_1 in range(len(coords))
+        ] )
+
+        term2 = TP(g_contra, tmp_varphi_varphi, h_co)
+        term2 = TC( term2, (0,2))
+        term2 = TC( term2, (0,1))
+
+        term3 = TP(g_co, h_contra, tmp_varphi_varphi)
+        term3 = TC(term3, (2,4))
+        term3 = TC(term3, (2,3))
+
+        term4 = TP(g_co, g_contra, term1)
+        term4 = TC(term4, (2,4))
+        term4 = TC(term4, (2,3))
+
+        term5 = 2*V*h_co
+
+        term6 = 2*g_co*sp.diff(V, varphi)*hVarphi
+
+        return sp.simplify(
+            term1 - term2 - term3 - term4 - term5 - term6
+        )
+
+################################################################################
+#~ PERTURBED SCALAR FIELD EQUATION
+#################################################################################
+#~ private methods to compute
+#~      LHS and RHS of scalar field equation PERTUREBED
+#~
+#~ requires
+#~      set_hScalarField()
+#~ needed for
+#~      get_hdiv_tensor_energy_momentum()
+#~      get_hu_div_tensor_energy_momentum()
+#~      get_hSTT_field_eq()
+#################################################################################
+
+    @staticmethod
+    def _get_hLHS_scalarField(
+        g_co, g_contra, h_co, h_contra,
+        varphi, V, hVarphi, hV, T_co,
+        Chris_2, coords
+    ):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        lhs_1 = TP(
+            h_contra,
+            toolkit._nabla_T_1co(
+                toolkit._nabla_scalar(varphi, coords),
+                Chris_2,
+                coords
+            )
+        )
+
+        lhs_1 = TC( lhs_1, (0,2))
+        lhs_1 = TC( lhs_1, (0,1))
+
+        lhs_2 = TP(
+            g_contra,
+            toolkit._nabla_T_1co(
+                toolkit._nabla_scalar(hVarphi, coords),
+                Chris_2,
+                coords
+            )
+        )
+
+        lhs_2 = TC( lhs_2, (0,2) )
+        lhs_2 = TC( lhs_2, (0,1) )
+
+        return sp.simplify(lhs_1 + lhs_2)
+
+    @staticmethod
+    def _get_hRHS_scalarField(
+        g_co, g_contra, h_co, h_contra,
+        varphi, V, hVarphi, hV, T_co, hT_co,
+        Chris_2, coords
+    ):
+
+        #TODO inpucht checks
+        #TODO docstring
+
+        #var_tmp = sp.Function("\\varphi")(coords[1])
+        a = sp.Function("a")(varphi)
+
+        T_trace = TC( TP(g_contra, T_co), (0,2) )
+        T_trace = TC( T_trace, (0,1) )
+
+        rhs_1 = sp.diff(a, varphi)*T_trace*hVarphi
+
+        rhs_2 = TP(h_contra, T_co)
+        rhs_2 = TC( rhs_2, (0,2))
+        rhs_2 = TC( rhs_2, (0,1))
+        rhs_2 *= a
+
+        rhs_3 = TP(g_contra, hT_co)
+        rhs_3 = TC( rhs_3, (0,2) )
+        rhs_3 = TC( rhs_3, (0,1) )
+        rhs_3 *= a
+
+        rhs_4 = sp.diff(V, varphi)
+        rhs_4 = sp.diff(rhs_4, varphi)*hVarphi
+
+        return sp.simplify(
+            -4*sp.pi*( rhs_1 + rhs_2 + rhs_3 ) + rhs_4
+        )
 #################################################################################
 #~ GEOMETRICAL FIELD EQUATIONS
 #################################################################################
@@ -679,10 +994,10 @@ class toolkit:
         )
 
         T_co = T_fluid_co + T_scalarField_co
-        T_co = TC( TP(self.g_contra, T_co), (1,3) )
+        T = TC( TP(self.g_contra, T_co), (1,3) )
 
         nabla_T = self._nabla_T_1co_1contra(
-            T_co, self.Christoffel_2nd, self.coords
+            T, self.Christoffel_2nd, self.coords
         )
 
         return sp.simplify(TC(nabla_T, (0,2)))
@@ -817,23 +1132,6 @@ class toolkit:
 #################################################################################
 
     @staticmethod
-    def _get_rhs_scalarField( g_co, g_contra, varphi, V, T_co, Chris_2, coords ):
-
-        #~ TODO DOCSTRING
-
-        #~ var_tmp = sp.Function("\\varphi")(coords[1])
-
-        a = sp.Function("a")(varphi)
-
-        T_trace = TC( TP(g_contra, T_co), (0,2) )
-
-        T_trace = TC( T_trace, (0,1) )
-
-        rhs = -4*sp.pi*a*T_trace + sp.diff( V, varphi )
-
-        return sp.simplify(rhs)
-
-    @staticmethod
     def _get_lhs_scalarField( g_co, g_contra, varphi, V, T_co, Chris_2, coords ):
 
         #~ TODO DOCSTRING
@@ -851,6 +1149,23 @@ class toolkit:
         lhs = TC( lhs, (0,1) )
 
         return sp.simplify(lhs)
+
+    @staticmethod
+    def _get_rhs_scalarField( g_co, g_contra, varphi, V, T_co, Chris_2, coords ):
+
+        #~ TODO DOCSTRING
+
+        #~ var_tmp = sp.Function("\\varphi")(coords[1])
+
+        a = sp.Function("a")(varphi)
+
+        T_trace = TC( TP(g_contra, T_co), (0,2) )
+
+        T_trace = TC( T_trace, (0,1) )
+
+        rhs = -4*sp.pi*a*T_trace + sp.diff( V, varphi )
+
+        return sp.simplify(rhs)
 
 #################################################################################
 #~ TENSOR ENERGY AND MOMENTUM
@@ -1875,7 +2190,7 @@ if __name__ == "__main__":
     #~ rho = sp.Function("\\rho")(r)
     #~ RT.set_density(rho)
 
-    #~ p = sp.Function("p")(r)
+    #~ p = sp.Function("p")(rho)
     #~ RT.set_pressure(p)
 
     #~ varphi = sp.Function("\\varphi")(r)
