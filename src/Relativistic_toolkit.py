@@ -35,7 +35,7 @@ class toolkit:
         self.RiemanT = None
         self.RicciT_co = None
         self.RicciS = None
-        self.Einstein_co = None
+        self.EinsteinT_co = None
         self.u_co = None
         self.u_contra = None
         self.rho = None
@@ -50,7 +50,7 @@ class toolkit:
         self.hRiemanT = None
         self.hRicciT_co = None
         self.hRicciS = None
-        self.hEinstein_co = None
+        self.hEinsteinT_co = None
         self.hU_co = None
         self.hU_contra = None
         self.hRho = None
@@ -59,13 +59,14 @@ class toolkit:
         self.hV = None
 
         #~ metric with small parameter to expand around and its geometricals
-        self.eps_g_co = None
-        self.eps_g_contra = None
+        self.eps = None
+        self.epsG_co = None
+        self.epsG_contra = None
         self.epsChristoffel_2nd = None
         self.epsRiemanT = None
         self.epsRicciT_co = None
         self.epsRicciS = None
-        self.epsEinstein_co = None
+        self.epsEinsteinT_co = None
         self.epsU_co = None
         self.epsU_contra = None
         self.epsRho = None
@@ -131,6 +132,126 @@ class toolkit:
         return self.coords
 
 #################################################################################
+#~ GEOMETRICAL FIELD EQUATIONS EXPANDED AROUND SMALL PARAMETER
+#################################################################################
+#~ public/private  methods to get/set
+#~      LHS and RHS of Einstein equations with conservation laws
+#~      with expanding around small parameter
+#~
+#~ depends on geometrical structures on non perturbed part
+#################################################################################
+
+    def set_epsGmetric(self, eps, epsG_co):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        self.eps = eps
+
+        self.epsG_co = sp.Array(epsG_co)
+        self.epsG_contra = sp.Array( self.epsG_co.tomatrix()**-1 )
+
+        g_contr = TC( TP(self.epsG_co, self.epsG_contra), (0,2) )
+
+        g_contr = g_contr.applyfunc(
+            lambda _: sp.series(_, x=self.eps, x0=0, n=2).removeO()
+        )
+
+        if g_contr.tomatrix() != sp.eye(len(self.coords)):
+
+            logging.error(
+                "Metric contraction does not result in Kronecker symbol!"
+            )
+            display(g_contracted)
+            return
+
+        logging.info("Will compute the Christoffel, Riman, Ricci...")
+
+        self.epsG_co = self.epsG_co.applyfunc(
+            lambda _: sp.series(_, x=self.eps, x0=0, n=2).removeO()
+        )
+
+        self.epsG_contra = self.epsG_contra.applyfunc(
+            lambda _: sp.series(_, x=self.eps, x0=0, n=2).removeO()
+        )
+
+        self.epsChristoffel_2nd = self._get_Christoffel_2nd(
+            self.coords, self.epsG_co, self.epsG_contra
+        ).applyfunc(
+            lambda _: sp.series(_, x=self.eps, x0=0, n=2).removeO()
+        )
+
+        self.epsRiemanT = self._get_Rieman_tensor(
+            self.coords, self.epsG_co, self.epsG_contra, self.epsChristoffel_2nd
+        ).applyfunc(
+            lambda _: sp.series(_, x=self.eps, x0=0, n=2).removeO()
+        )
+
+        self.epsRicciT_co = self._get_Ricci_tensor_co(
+            self.coords, self.epsG_co, self.epsG_contra, self.epsRiemanT
+        ).applyfunc(
+            lambda _: sp.series(_, x=self.eps, x0=0, n=2).removeO()
+        )
+
+        self.epsRicciS = sp.series(
+            self._get_Ricci_scalar(
+                self.coords, self.epsG_co, self.epsG_contra, self.epsRicciT_co
+            ),
+            x=self.eps, x0=0, n=2
+        ).removeO()
+
+        self.epsEinsteinT_co = self._get_Einstein_tensor_co(
+            self.coords, self.epsG_co, self.epsG_contra,
+            self.epsRicciT_co, self.epsRicciS
+        ).applyfunc(
+            lambda _: sp.series(_, x=self.eps, x0=0, n=2).removeO()
+        )
+
+        return
+
+    def get_epsGmetric(self):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        return self.epsG_co, self.epsG_contra
+
+    def get_epsChristoffel_2nd(self):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        return self.epsChristoffel_2nd
+
+    def get_epsRieman_tensor(self):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        return self.epsRiemanT
+
+    def get_epsRicci_tensor_co(self):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        return self.epsRicciT_co
+
+    def get_epsRicci_scalar(self):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        return self.epsRicciS
+
+    def get_epsEinstein_tensor_co(self):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        return self.epsEinsteinT_co
+
+#################################################################################
 #~ PERTURBED GEOMETRICAL FIELD EQUATIONS
 #################################################################################
 #~ public/private  methods to get/set
@@ -168,7 +289,7 @@ class toolkit:
             self.RicciT_co, self.hRicciT_co
         )
 
-        self.hEinstein_co = self._get_hinstein_tensor_co(
+        self.hEinsteinT_co = self._get_hinstein_tensor_co(
             self.hRicciT_co, self.h_co, self.RicciS, self.g_co, self.hRicciS
         )
 
@@ -188,33 +309,33 @@ class toolkit:
 
         return self.hChristoffel_2nd
 
-    def get_hRiemanT(self):
+    def get_hRieman_tensor(self):
 
         #~ TODO inpucht checks
         #~ TODO docstring
 
         return self.hRiemanT
 
-    def get_hRicciT_co(self):
+    def get_hRicci_tensor_co(self):
 
         #~ TODO inpucht checks
         #~ TODO docstring
 
         return self.hRicciT_co
 
-    def get_hRicciS(self):
+    def get_hRicci_scalar(self):
 
         #~ TODO inpucht checks
         #~ TODO docstring
 
         return self.hRicciS
 
-    def get_hEinstein_co(self):
+    def get_hEinstein_tensor_co(self):
 
         #~ TODO inpucht checks
         #~ TODO docstring
 
-        return self.hEinstein_co
+        return self.hEinsteinT_co
 
     @staticmethod
     def _get_hChristoffel_2nd(coords, g_co, g_contra, h_co, Chris_2):
@@ -360,7 +481,7 @@ class toolkit:
             self.coords, self.g_co, self.g_contra, self.RicciT_co
         )
 
-        self.Einstein_co = self._get_Einstein_tensor_co(
+        self.EinsteinT_co = self._get_Einstein_tensor_co(
             self.coords, self.g_co, self.g_contra, self.RicciT_co, self.RicciS
         )
 
@@ -1740,14 +1861,16 @@ if __name__ == "__main__":
     #~ Lambda = sp.Function("\Lambda")(r)
 
     #~ g_co = [
-        #~ [ -sp.exp(2*Phi), 0, 0, 0 ],
-        #~ [ 0, sp.exp(2*Lambda), 0, 0 ],
-        #~ [ 0, 0, r**2, 0 ],
-        #~ [ 0, 0, 0, (r*sp.sin(theta))**2 ]
+            #~ [ -sp.exp(2*Phi), 0, 0, 0 ],
+            #~ [ 0, sp.exp(2*Lambda), 0, 0 ],
+            #~ [ 0, 0, r**2, 0 ],
+            #~ [ 0, 0, 0, (r*sp.sin(theta))**2 ]
     #~ ];
 
     #~ RT.set_metric(g_co);
     #~ g_co, g_contra = RT.get_metric();
+
+    #~ G_co = RT.get_Einstein_tensor_co();
 
     #~ rho = sp.Function("\\rho")(r)
     #~ RT.set_density(rho)
@@ -1762,5 +1885,34 @@ if __name__ == "__main__":
     #~ RT.set_u_contra([sp.exp(-Phi), 0, 0, 0]);
     #~ u_co, u_contra = RT.get_u();
 
-    #~ RT.get_u_div_tensor_energy_momentum()
-    #~ RT.get_STT_field_eq();
+    #~ delta_Phi = sp.Function("\delta\Phi")(r,t)
+    #~ delta_Lambda = sp.Function("\delta\Lambda")(r,t)
+
+    #~ h_co = [
+        #~ [ -2*sp.exp(2*Phi)*delta_Phi, 0, 0, 0 ],
+        #~ [ 0, 2*sp.exp(2*Lambda)*delta_Lambda, 0, 0 ],
+        #~ [ 0, 0, 0, 0 ],
+        #~ [ 0, 0, 0, 0 ]
+    #~ ]
+
+    #~ RT.set_hmetric(h_co)
+    #~ h_co, h_contra = RT.get_hmetric()
+
+    #~ hG_co = RT.get_hEinstein_tensor_co()
+
+    #~ eps = sp.symbols("\\varepsilon")
+
+    #~ epsG_co = [
+            #~ [ -sp.exp(2*( Phi + eps*delta_Phi)), 0, 0, 0 ],
+            #~ [ 0, sp.exp(2*(Lambda + eps*delta_Lambda)), 0, 0 ],
+            #~ [ 0, 0, r**2, 0 ],
+            #~ [ 0, 0, 0, (r*sp.sin(theta))**2 ]
+    #~ ];
+
+    #~ RT.set_epsGmetric(eps, epsG_co);
+    #~ epsG_co, epsG_contra = RT.get_epsGmetric();
+
+    #~ epsG_co = RT.get_epsEinstein_tensor_co();
+
+    #~ display(G_co[0,0] + eps*hG_co[0,0]);
+    #~ display(epsG_co[0,0]);
