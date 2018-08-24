@@ -130,6 +130,33 @@ class toolkit:
 
         return self.coords
 
+    def set_hmetric(self, h_co):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        self.h_co = sp.Array(h_co)
+
+        self.h_contra = (-1)*TP(g_contra, g_contra, h_co)
+        self.h_contra = TC( self.h_contra, (1,4))
+        self.h_contra = TC( self.h_contra, (1,3))
+
+        return
+
+    def get_hmetric(self):
+
+        #~ TODO input chekcs
+        #~ TODO docstring
+
+        return self.h_co, self.h_contra
+
+#################################################################################
+#~ GEOMETRICAL FIELD EQUATIONS
+#################################################################################
+#~ public methods to get/set
+#~      LHS and RHS of Einstein equations with conservation laws
+#################################################################################
+
     def set_metric(self, g_co):
         """
         sets the full covariant metric
@@ -242,6 +269,36 @@ class toolkit:
         """
 
         return self.g_co, self.g_contra
+
+    def get_Christoffel_2nd(self):
+
+        #~ TODO docstirng
+
+        return self.Christoffel_2nd
+
+    def get_Rieman_tensor(self):
+
+        #~ TODO docstring
+
+        return self.RiemanT
+
+    def get_Ricci_tensor_co(self):
+
+        #~ TODO docstring
+
+        return self.RicciT_co
+
+    def get_Ricci_scalar(self):
+
+        #~ TODO docstring
+
+        return self.RicciS
+
+    def get_Einstein_tensor_co(self):
+
+        #~ TODO docstring
+
+        return self.EinsteinT_co
 
     def set_u_contra(self, u_contra):
         """
@@ -472,12 +529,26 @@ class toolkit:
         T_energy_momentum, \
         scalarField_lhs, scalarField_rhs
 
+#################################################################################
+#~ SCALAR FIELD EQUATION
+#################################################################################
+#~ private methods to compute
+#~      LHS and RHS of scalar field equation
+#~
+#~ requires
+#~      set_scalarField()
+#~ needed for
+#~      get_div_tensor_energy_momentum()
+#~      get_u_div_tensor_energy_momentum()
+#~      get_STT_field_eq()
+#################################################################################
+
     @staticmethod
-    def _get_rhs_scalarField(g_co, g_contra, varphi, V, T_co, Chris_2, coords):
+    def _get_rhs_scalarField( g_co, g_contra, varphi, V, T_co, Chris_2, coords ):
 
         #~ TODO DOCSTRING
 
-        var_tmp = sp.Function("\\varphi")(coords[1])
+        #~ var_tmp = sp.Function("\\varphi")(coords[1])
 
         a = sp.Function("a")(varphi)
 
@@ -485,7 +556,7 @@ class toolkit:
 
         T_trace = TC( T_trace, (0,1) )
 
-        rhs = -4*sp.pi*a*T_trace + sp.diff( V, var_tmp )
+        rhs = -4*sp.pi*a*T_trace + sp.diff( V, varphi )
 
         return sp.simplify(rhs)
 
@@ -507,6 +578,13 @@ class toolkit:
         lhs = TC( lhs, (0,1) )
 
         return sp.simplify(lhs)
+
+#################################################################################
+#~ TENSOR ENERGY AND MOMENTUM
+#################################################################################
+#~ private methods to compute
+#~      tensor for perfect fluid and tensor of scalar field
+#################################################################################
 
     @staticmethod
     def _get_tensor_scalarField_co(varphi, V, g_co, g_contra, coords):
@@ -542,8 +620,15 @@ class toolkit:
             (rho + p)*TP(u_co, u_co) + p*g_co
         )
 
+#################################################################################
+#~ GEOMETRY CURVATURE
+#################################################################################
+#~ private methods to compute
+#~      Christoffel 1st, 2nd; Riemann tensor, Ricci tensor and scalar and G
+#################################################################################
+
     @staticmethod
-    def _comp_Christoffel_1st(coords, g, co):
+    def _comp_Christoffel_1st(coords, g_co, co):
         """
         for provided coordinates as list, full covariant metric
         and covarinat indexe reutrns the corresponding Christoffel symbol
@@ -614,14 +699,14 @@ class toolkit:
 
         return sp.simplify(
             1/2 * (
-                sp.diff( g[ co[2], co[0] ], coords[co[1]] )
-                + sp.diff( g[ co[1], co[0] ], coords[co[2]] )
-                - sp.diff( g[ co[1], co[2] ], coords[co[0]] )
+                sp.diff( g_co[ co[2], co[0] ], coords[co[1]] )
+                + sp.diff( g_co[ co[1], co[0] ], coords[co[2]] )
+                - sp.diff( g_co[ co[1], co[2] ], coords[co[0]] )
             )
         )
 
     @staticmethod
-    def _get_Christoffel_1st(coords, g):
+    def _get_Christoffel_1st(coords, g_co):
         """
         computes each term of Christoffel symbols of 1st kind with
         _comp_Christoffel_1st static method provided in the same class for
@@ -679,7 +764,7 @@ class toolkit:
             [
                 [
                     toolkit._comp_Christoffel_1st(
-                        coords, g, [co_1, co_2, co_3]
+                        coords, g_co, [co_1, co_2, co_3]
                     ) for co_3 in range(len(coords))
                 ] for co_2 in range(len(coords))
             ] for co_1 in range(len(coords))
@@ -995,7 +1080,8 @@ class toolkit:
 
     @staticmethod
     def _get_Einstein_tensor_co(
-        coords, g_co, g_contra, RicciT = None, RicciS = None):
+        coords, g_co, g_contra, RicciT = None, RicciS = None
+    ):
         """
         return full covariant Einstein tensor for provided coordinates,
         covariant and contravariant metrices
@@ -1068,6 +1154,12 @@ class toolkit:
         EinsteinT = RicciT - (1/2)*RicciS*g_co
 
         return sp.simplify(EinsteinT)
+
+#################################################################################
+#~ NABLA PART
+#################################################################################
+#~ private methods to compute covariant derivative in some cases
+#################################################################################
 
     @staticmethod
     def _nabla_scalar( phi, coords ):
