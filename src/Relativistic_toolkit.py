@@ -130,6 +130,15 @@ class toolkit:
 
         return self.coords
 
+#################################################################################
+#~ PERTURBED GEOMETRICAL FIELD EQUATIONS
+#################################################################################
+#~ public/private  methods to get/set
+#~      LHS and RHS of PERTURBED Einstein equations with conservation laws
+#~
+#~ depends on geometrical structures on non perturbed part
+#################################################################################
+
     def set_hmetric(self, h_co):
 
         #~ TODO input chekcs
@@ -137,9 +146,31 @@ class toolkit:
 
         self.h_co = sp.Array(h_co)
 
-        self.h_contra = (-1)*TP(g_contra, g_contra, h_co)
+        self.h_contra = (-1)*TP(self.g_contra, self.g_contra, self.h_co)
         self.h_contra = TC( self.h_contra, (1,4))
         self.h_contra = TC( self.h_contra, (1,3))
+
+        self.hChristoffel_2nd = self._get_hChristoffel_2nd(
+            self.coords, self.g_co, self.g_contra, self.h_co, self.Christoffel_2nd
+        )
+
+        self.hRiemanT = self._get_hRieman_tensor(
+            self.coords, self.g_co, self.g_contra, self.h_co,
+            self.hChristoffel_2nd,
+            self.Christoffel_2nd
+        )
+
+        self.hRicciT_co = self._get_hRicci_tensor_co( self.hRiemanT )
+
+        self.hRicciS = self._get_hRicciS(
+            self.g_co, self.g_contra,
+            self.h_co, self.h_contra,
+            self.RicciT_co, self.hRicciT_co
+        )
+
+        self.hEinstein_co = self._get_hinstein_tensor_co(
+            self.hRicciT_co, self.h_co, self.RicciS, self.g_co, self.hRicciS
+        )
 
         return
 
@@ -149,6 +180,127 @@ class toolkit:
         #~ TODO docstring
 
         return self.h_co, self.h_contra
+
+    def get_hChristoffel_2nd(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hChristoffel_2nd
+
+    def get_hRiemanT(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hRiemanT
+
+    def get_hRicciT_co(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hRicciT_co
+
+    def get_hRicciS(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hRicciS
+
+    def get_hEinstein_co(self):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return self.hEinstein_co
+
+    @staticmethod
+    def _get_hChristoffel_2nd(coords, g_co, g_contra, h_co, Chris_2):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        nabla_h_co = toolkit._nabla_T_2co(h_co, Chris_2, coords)
+
+        div_nabla_h_co = TP(g_contra, nabla_h_co)
+
+        term_1 = TC(div_nabla_h_co, (1,4))
+        term_2 = TC(div_nabla_h_co, (1,4))
+        term_3 = TC(div_nabla_h_co, (1,2))
+
+        res = sp.Array( [
+            [
+                [
+                    term_1[contra_1, co_1, co_2]
+                    + term_2[contra_1, co_2, co_1]
+                    - term_3[contra_1, co_1, co_2]
+                    for co_2 in range(len(coords))
+                ] for co_1 in range(len(coords))
+            ] for contra_1 in range(len(coords))
+        ] )
+
+        return sp.simplify((1/2)*res)
+
+    @staticmethod
+    def _get_hRieman_tensor(coords, g_co, g_contra, h_co, hChris2, Chris_2):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        nabla_hChris2 = toolkit._nabla_T_1contra_2co(hChris2, Chris_2, coords)
+
+        hRiemanT = sp.Array( [
+            [
+                [
+                    [
+                        nabla_hChris2[co_2, contra_1, co_1, co_3 ]
+
+                        - nabla_hChris2[co_3, contra_1, co_1, co_2]
+
+                        for co_3 in range(len(coords))
+                    ] for co_2 in range(len(coords))
+                ] for co_1 in range(len(coords))
+            ] for contra_1 in range(len(coords))
+        ] )
+
+        return sp.simplify(hRiemanT)
+
+    @staticmethod
+    def _get_hRicci_tensor_co(hRiemanT):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        return sp.simplify( TC(hRiemanT, (0,2)) )
+
+    @staticmethod
+    def _get_hRicciS(g_co, g_contra, h_co, h_contra, RicciT_co, hRicciT_co):
+
+        term1 = TP(RicciT_co, h_contra)
+        term1 = TC( term1, (0,2) )
+        term1 = TC( term1, (0,1) )
+
+        term2 = TP(g_contra, hRicciT_co)
+        term2 = TC( term2, (0,2) )
+        term2 = TC( term2, (0,1) )
+
+        return sp.simplify(term1 + term2)
+
+    @staticmethod
+    def _get_hinstein_tensor_co( hRicciT_co, h_co, RicciS, g_co, hRicciS ):
+
+        #~ TODO inpucht checks
+        #~ TODO docstring
+
+        term1 = hRicciT_co
+
+        term2 = (-1/2)*RicciS*h_co
+
+        term3 = (-1/2)*hRicciS*g_co
+
+        return sp.simplify(term1 + term2 + term3)
 
 #################################################################################
 #~ GEOMETRICAL FIELD EQUATIONS
@@ -1504,6 +1656,60 @@ class toolkit:
                         for co_3 in range(len(coords))
                     ] for co_2 in range(len(coords))
                 ] for co_1 in range(len(coords))
+            ] for nabla_i in range(len(coords))
+        ] )
+
+        return sp.simplify( res )
+
+    @staticmethod
+    def _nabla_T_1contra_2co( T, Chris_2, coords ):
+        """
+        return the covariant derivative of tensor of rank 3 and type (1,2),
+        where first index is contravariant, the rest are covariant
+
+        T^{a}_{bc}
+
+        INDEX PLACEMENT IS FIXED, for other arrengment see other _nabla funcs
+
+        Parameters
+        ----------
+        T : sympy array of rank 3 of type T^{a}_{bc}
+
+        Chris_2 : sympy array of rank 3
+            Christoffel symbol of 2nd kind wrt to coords of interenst,
+
+        coords : list
+            sympy symbols coordinates in list
+
+        Returns
+        -------
+            : sympy array of rank 2
+        """
+
+        #~ TODO include examples
+
+        T_deriv = sp.derive_by_array(T, coords)
+
+        Chris_T_contra_1 = TC( TP(Chris_2, T), (2,3) )
+        Chris_T_co_1 = TC( TP(Chris_2, T), (0,4) )
+        Chris_T_co_2 = TC( TP(Chris_2, T), (0,5) )
+
+        res = sp.Array( [
+            [
+                [
+                    [
+
+                        T_deriv[nabla_i, contra_1, co_1, co_2 ]
+
+                        + Chris_T_contra_1[contra_1, nabla_i, co_1, co_2 ]
+
+                        - Chris_T_co_1[nabla_i, co_1, contra_1, co_2 ]
+
+                        - Chris_T_co_2[nabla_i, co_2, contra_1, co_1 ]
+
+                        for co_2 in range(len(coords))
+                    ] for co_1 in range(len(coords))
+                ] for contra_1 in range(len(coords))
             ] for nabla_i in range(len(coords))
         ] )
 
